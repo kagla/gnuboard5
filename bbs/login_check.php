@@ -81,8 +81,14 @@ if(function_exists('update_auth_session_token')) update_auth_session_token($mb['
 if($config['cf_use_point']) {
     $sum_point = get_point_sum($mb['mb_id']);
 
-    $sql= " update {$g5['member_table']} set mb_point = '$sum_point' where mb_id = '{$mb['mb_id']}' ";
-    sql_query($sql);
+    // $sql= " update {$g5['member_table']} set mb_point = '$sum_point' where mb_id = '{$mb['mb_id']}' ";
+    // sql_query($sql);
+    // pdo 사용
+    $sql = " update {$g5['member_table']} set mb_point = :sum_point where mb_id = :mb_id ";
+    $stmt = $pdo->prepare($sql);
+    $stmt->bindValue(':sum_point', $sum_point, PDO::PARAM_INT);
+    $stmt->bindValue(':mb_id', $mb['mb_id'], PDO::PARAM_STR);
+    $stmt->execute();
 }
 
 // 3.26

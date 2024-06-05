@@ -41,18 +41,27 @@ if ($sca || $stx || $stx === '0') {     //검색이면
     $sql_search = get_sql_search($sca, $sfl, $stx, $sop);
 
     // 가장 작은 번호를 얻어서 변수에 저장 (하단의 페이징에서 사용)
-    $sql = " select MIN(wr_num) as min_wr_num from {$write_table} ";
+    // $sql = " select MIN(wr_num) as min_wr_num from {$write_table} ";
     $row = sql_fetch($sql);
+    // pdo 사용
+    $stmt = $pdo->query($sql)->fetch(PDO::FETCH_ASSOC);
     $min_spt = (int)$row['min_wr_num'];
 
     if (!$spt) $spt = $min_spt;
 
-    $sql_search .= " and (wr_num between {$spt} and ({$spt} + {$config['cf_search_part']})) ";
+    // $sql_search .= " and (wr_num between {$spt} and ({$spt} + {$config['cf_search_part']})) ";
+    // pdo 사용
+    $sql_search .= " and (wr_num between :spt and (:spt + :cf_search_part)) ";
 
     // 원글만 얻는다. (코멘트의 내용도 검색하기 위함)
     // 라엘님 제안 코드로 대체 http://sir.kr/g5_bug/2922
-    $sql = " SELECT COUNT(DISTINCT `wr_parent`) AS `cnt` FROM {$write_table} WHERE {$sql_search} ";
-    $row = sql_fetch($sql);
+    // $sql = " SELECT COUNT(DISTINCT `wr_parent`) AS `cnt` FROM {$write_table} WHERE {$sql_search} ";
+    // $row = sql_fetch($sql);
+    // 바인딩된 변수 설정
+    $stmt->bindValue(':spt', $spt, PDO::PARAM_INT);
+    $stmt->bindValue(':search_part', $config['cf_search_part'], PDO::PARAM_INT);
+    $stmt->execute();
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
     $total_count = $row['cnt'];
     /*
     $sql = " select distinct wr_parent from {$write_table} where {$sql_search} ";
@@ -94,7 +103,13 @@ if (!$is_search_bbs) {
     for ($k=0; $k<$board_notice_count; $k++) {
         if (trim($arr_notice[$k]) == '') continue;
 
-        $row = sql_fetch(" select * from {$write_table} where wr_id = '{$arr_notice[$k]}' ");
+        // $row = sql_fetch(" select * from {$write_table} where wr_id = '{$arr_notice[$k]}' ");
+        // pdo 사용
+        $sql = " select * from {$write_table} where wr_id = :wr_id ";
+        $stmt = $pdo->prepare($sql);
+        $stmt->bindValue(':wr_id', $arr_notice[$k], PDO::PARAM_INT);
+        $stmt->execute();
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!isset($row['wr_id']) || !$row['wr_id']) continue;
 

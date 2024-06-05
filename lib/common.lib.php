@@ -836,6 +836,7 @@ function get_group($gr_id, $is_cache=false)
 function get_member($mb_id, $fields='*', $is_cache=false)
 {
     global $g5;
+    global $pdo;
     
     if (preg_match("/[^0-9a-z_]+/i", $mb_id))
         return array();
@@ -848,9 +849,15 @@ function get_member($mb_id, $fields='*', $is_cache=false)
         return $cache[$mb_id][$key];
     }
 
-    $sql = " select $fields from {$g5['member_table']} where mb_id = TRIM('$mb_id') ";
+    // $sql = " select $fields from {$g5['member_table']} where mb_id = TRIM('$mb_id') ";
+    // pdo 사용
+    $sql = " select $fields from {$g5['member_table']} where mb_id = :mb_id ";
+    $stmt = $pdo->prepare($sql);
+    $stmt->bindValue(':mb_id', $mb_id, PDO::PARAM_STR);
+    $stmt->execute();
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    $cache[$mb_id][$key] = run_replace('get_member', sql_fetch($sql), $mb_id, $fields, $is_cache);
+    $cache[$mb_id][$key] = run_replace('get_member', $row, $mb_id, $fields, $is_cache);
 
     return $cache[$mb_id][$key];
 }
@@ -1030,6 +1037,7 @@ function insert_point($mb_id, $point, $content='', $rel_table='', $rel_id='', $r
     global $config;
     global $g5;
     global $is_admin;
+    global $pdo;
 
     // 포인트 사용을 하지 않는다면 return
     if (!$config['cf_use_point']) { return 0; }
@@ -1039,7 +1047,8 @@ function insert_point($mb_id, $point, $content='', $rel_table='', $rel_id='', $r
 
     // 회원아이디가 없다면 업데이트 할 필요 없음
     if ($mb_id == '') { return 0; }
-    $mb = sql_fetch(" select mb_id from {$g5['member_table']} where mb_id = '$mb_id' ");
+    // $mb = sql_fetch(" select mb_id from {$g5['member_table']} where mb_id = '$mb_id' ");
+    $mb = get_member($mb_id, 'mb_id');
     if (!$mb['mb_id']) { return 0; }
 
     // 회원포인트
@@ -1231,6 +1240,7 @@ function delete_expire_point($mb_id, $point)
 function get_point_sum($mb_id)
 {
     global $g5, $config;
+    global $pdo;
 
     if($config['cf_point_term'] > 0) {
         // 소멸포인트가 있으면 내역 추가
@@ -1246,20 +1256,46 @@ function get_point_sum($mb_id)
             $po_expire_date = G5_TIME_YMD;
             $po_expired = 1;
 
+            // $sql = " insert into {$g5['point_table']}
+            //             set mb_id = '$mb_id',
+            //                 po_datetime = '".G5_TIME_YMDHIS."',
+            //                 po_content = '".addslashes($content)."',
+            //                 po_point = '$point',
+            //                 po_use_point = '0',
+            //                 po_mb_point = '$po_mb_point',
+            //                 po_expired = '$po_expired',
+            //                 po_expire_date = '$po_expire_date',
+            //                 po_rel_table = '$rel_table',
+            //                 po_rel_id = '$rel_id',
+            //                 po_rel_action = '$rel_action' ";
+            // sql_query($sql);
+            // pdo 사용
             $sql = " insert into {$g5['point_table']}
-                        set mb_id = '$mb_id',
-                            po_datetime = '".G5_TIME_YMDHIS."',
-                            po_content = '".addslashes($content)."',
-                            po_point = '$point',
-                            po_use_point = '0',
-                            po_mb_point = '$po_mb_point',
-                            po_expired = '$po_expired',
-                            po_expire_date = '$po_expire_date',
-                            po_rel_table = '$rel_table',
-                            po_rel_id = '$rel_id',
-                            po_rel_action = '$rel_action' ";
-            sql_query($sql);
-
+                        set mb_id = :mb_id,
+                            po_datetime = :po_datetime,
+                            po_content = :po_content,
+                            po_point = :po_point,
+                            po_use_point = :po_use_point,
+                            po_mb_point = :po_mb_point,
+                            po_expired = :po_expired,
+                            po_expire_date = :po_expire_date,
+                            po_rel_table = :po_rel_table,
+                            po_rel_id = :po_rel_id,
+                            po_rel_action = :po_rel_action ";
+            $stmt = $pdo->prepare($sql);
+            $stmt->bindValue(':mb_id', $mb_id, PDO::PARAM_STR);
+            $stmt->bindValue(':po_datetime', G5_TIME_YMDHIS, PDO::PARAM_STR);
+            $stmt->bindValue(':po_content', $content, PDO::PARAM_STR);
+            $stmt->bindValue(':po_point', $point, PDO::PARAM_INT);
+            $stmt->bindValue(':po_use_point', 0, PDO::PARAM_INT);
+            $stmt->bindValue(':po_mb_point', $po_mb_point, PDO::PARAM_INT);
+            $stmt->bindValue(':po_expired', $po_expired, PDO::PARAM_INT);
+            $stmt->bindValue(':po_expire_date', $po_expire_date, PDO::PARAM_STR);
+            $stmt->bindValue(':po_rel_table', $rel_table, PDO::PARAM_STR);
+            $stmt->bindValue(':po_rel_id', $rel_id, PDO::PARAM_STR);
+            $stmt->bindValue(':po_rel_action', $rel_action, PDO::PARAM_STR);
+            $stmt->execute();
+            
             // 포인트를 사용한 경우 포인트 내역에 사용금액 기록
             if($point < 0) {
                 insert_use_point($mb_id, $point);
@@ -1267,20 +1303,39 @@ function get_point_sum($mb_id)
         }
 
         // 유효기간이 있을 때 기간이 지난 포인트 expired 체크
+        // $sql = " update {$g5['point_table']}
+        //             set po_expired = '1'
+        //             where mb_id = '$mb_id'
+        //               and po_expired <> '1'
+        //               and po_expire_date <> '9999-12-31'
+        //               and po_expire_date < '".G5_TIME_YMD."' ";
+        // sql_query($sql);
+        // pdo 사용
         $sql = " update {$g5['point_table']}
                     set po_expired = '1'
-                    where mb_id = '$mb_id'
+                    where mb_id = :mb_id
                       and po_expired <> '1'
                       and po_expire_date <> '9999-12-31'
-                      and po_expire_date < '".G5_TIME_YMD."' ";
-        sql_query($sql);
+                      and po_expire_date < :po_expire_date ";
+        $stmt = $pdo->prepare($sql);
+        $stmt->bindValue(':mb_id', $mb_id, PDO::PARAM_STR);
+        $stmt->bindValue(':po_expire_date', G5_TIME_YMD, PDO::PARAM_STR);
+        $stmt->execute();        
     }
 
     // 포인트합
+    // $sql = " select sum(po_point) as sum_po_point
+    //             from {$g5['point_table']}
+    //             where mb_id = '$mb_id' ";
+    // $row = sql_fetch($sql);
+    // pdo 사용
     $sql = " select sum(po_point) as sum_po_point
                 from {$g5['point_table']}
-                where mb_id = '$mb_id' ";
-    $row = sql_fetch($sql);
+                where mb_id = :mb_id ";
+    $stmt = $pdo->prepare($sql);
+    $stmt->bindValue(':mb_id', $mb_id, PDO::PARAM_STR);
+    $stmt->execute();
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
     return $row['sum_po_point'];
 }

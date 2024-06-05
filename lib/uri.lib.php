@@ -325,6 +325,7 @@ function exist_seo_title_recursive($type, $seo_title, $write_table, $sql_id=0){
 function seo_title_update($db_table, $pk_id, $type='bbs'){
     
     global $g5;
+    global $pdo;
 
     $pk_id = (int) $pk_id;
 
@@ -334,8 +335,21 @@ function seo_title_update($db_table, $pk_id, $type='bbs'){
         if( ! (isset($write['wr_seo_title']) && $write['wr_seo_title']) && (isset($write['wr_subject']) && $write['wr_subject']) ){
             $wr_seo_title = exist_seo_title_recursive('bbs', generate_seo_title($write['wr_subject']), $db_table, $pk_id);
 
-            $sql = " update `{$db_table}` set wr_seo_title = '{$wr_seo_title}' where wr_id = '{$pk_id}' ";
-            sql_query($sql);
+            // $sql = " update `{$db_table}` set wr_seo_title = '{$wr_seo_title}' where wr_id = '{$pk_id}' ";
+            // sql_query($sql);
+            // pdo 사용
+            $pdo->beginTransaction();
+            try {
+                $sql = " update `{$db_table}` set wr_seo_title = :wr_seo_title where wr_id = :wr_id ";
+                $stmt = $pdo->prepare($sql);
+                $stmt->bindValue(':wr_seo_title', $wr_seo_title, PDO::PARAM_STR);
+                $stmt->bindValue(':wr_id', $pk_id, PDO::PARAM_INT);
+                $stmt->execute();
+                $pdo->commit();
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                throw $e;
+            }
         }
     } else if ( $type === 'content' ){
 
@@ -343,8 +357,21 @@ function seo_title_update($db_table, $pk_id, $type='bbs'){
         if( ! (isset($co['co_seo_title']) && $co['co_seo_title']) && (isset($co['co_subject']) && $co['co_subject']) ){
             $co_seo_title = exist_seo_title_recursive('content', generate_seo_title($co['co_subject']), $db_table, $pk_id);
 
-            $sql = " update `{$db_table}` set co_seo_title = '{$co_seo_title}' where co_id = '{$pk_id}' ";
-            sql_query($sql);
+            // $sql = " update `{$db_table}` set co_seo_title = '{$co_seo_title}' where co_id = '{$pk_id}' ";
+            // sql_query($sql);
+            // pdo 사용
+            $pdo->beginTransaction();
+            try {
+                $sql = " update `{$db_table}` set co_seo_title = :co_seo_title where co_id = :co_id ";
+                $stmt = $pdo->prepare($sql);
+                $stmt->bindValue(':co_seo_title', $co_seo_title, PDO::PARAM_STR);
+                $stmt->bindValue(':co_id', $pk_id, PDO::PARAM_INT);
+                $stmt->execute();
+                $pdo->commit();
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                throw $e;
+            }
         }
     }
 }

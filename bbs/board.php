@@ -38,8 +38,15 @@ if ((isset($wr_id) && $wr_id) || (isset($wr_seo_title) && $wr_seo_title)) {
             ;
         } else {
             // 그룹접근
-            $sql = " select count(*) as cnt from {$g5['group_member_table']} where gr_id = '{$board['gr_id']}' and mb_id = '{$member['mb_id']}' ";
-            $row = sql_fetch($sql);
+            // $sql = " select count(*) as cnt from {$g5['group_member_table']} where gr_id = '{$board['gr_id']}' and mb_id = '{$member['mb_id']}' ";
+            // $row = sql_fetch($sql);
+            // pdo 사용
+            $sql = " select count(*) as cnt from {$g5['group_member_table']} where gr_id = :gr_id and mb_id = :mb_id ";
+            $stmt = $pdo->prepare($sql);
+            $stmt->bindValue(':gr_id', $board['gr_id'], PDO::PARAM_STR);
+            $stmt->bindValue(':mb_id', $member['mb_id'], PDO::PARAM_STR);
+            $stmt->execute();
+            $row = $stmt->fetch();
             if (!$row['cnt']) {
                 alert("접근 권한이 없으므로 글읽기가 불가합니다.\\n\\n궁금하신 사항은 관리자에게 문의 바랍니다.", G5_URL);
             }
@@ -86,11 +93,20 @@ if ((isset($wr_id) && $wr_id) || (isset($wr_seo_title) && $wr_seo_title)) {
             $is_owner = false;
             if ($write['wr_reply'] && $member['mb_id'])
             {
-                $sql = " select mb_id from {$write_table}
-                            where wr_num = '{$write['wr_num']}'
+                // $sql = " select mb_id from {$write_table}
+                //             where wr_num = '{$write['wr_num']}'
+                //             and wr_reply = ''
+                //             and wr_is_comment = 0 ";
+                // $row = sql_fetch($sql);
+                // pdo 사용
+                $sql = " select mb_id from {$write_table} 
+                            where wr_num = :wr_num
                             and wr_reply = ''
                             and wr_is_comment = 0 ";
-                $row = sql_fetch($sql);
+                $stmt = $pdo->prepare($sql);
+                $stmt->bindValue(':wr_num', $write['wr_num'], PDO::PARAM_INT);
+                $stmt->execute();
+                $row = $stmt->fetch();
                 if ($row['mb_id'] === $member['mb_id'])
                     $is_owner = true;
             }
@@ -115,8 +131,13 @@ if ((isset($wr_id) && $wr_id) || (isset($wr_seo_title) && $wr_seo_title)) {
     $ss_name = 'ss_view_'.$bo_table.'_'.$wr_id;
     if (!get_session($ss_name))
     {
-        sql_query(" update {$write_table} set wr_hit = wr_hit + 1 where wr_id = '{$wr_id}' ");
-
+        // sql_query(" update {$write_table} set wr_hit = wr_hit + 1 where wr_id = '{$wr_id}' ");
+        // pdo 사용
+        $sql = " update {$write_table} set wr_hit = wr_hit + 1 where wr_id = :wr_id ";
+        $stmt = $pdo->prepare($sql);
+        $stmt->bindValue(':wr_id', $wr_id, PDO::PARAM_INT);
+        $stmt->execute();
+        
         // 자신의 글이면 통과
         if ($write['mb_id'] && $write['mb_id'] === $member['mb_id']) {
             ;
