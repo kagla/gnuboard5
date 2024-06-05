@@ -157,15 +157,29 @@ if (file_exists($dbconfig_file)) {
     include_once($dbconfig_file);
     include_once(G5_LIB_PATH.'/common.lib.php');    // 공통 라이브러리
 
-    $connect_db = sql_connect(G5_MYSQL_HOST, G5_MYSQL_USER, G5_MYSQL_PASSWORD) or die('MySQL Connect Error!!!');
-    $select_db  = sql_select_db(G5_MYSQL_DB, $connect_db) or die('MySQL DB Error!!!');
+    try {
+        $dsn = 'mysql:host=' . G5_MYSQL_HOST . ';dbname=' . G5_MYSQL_DB;
+        $options = array(
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES " . G5_DB_CHARSET
+        );
+    
+        $pdo = new PDO($dsn, G5_MYSQL_USER, G5_MYSQL_PASSWORD, $options);
+    
+        if (defined('G5_MYSQL_SET_MODE') && G5_MYSQL_SET_MODE) {
+            $pdo->exec("SET SESSION sql_mode = ''");
+        }
+    
+        if (defined('G5_TIMEZONE')) {
+            $pdo->exec("SET time_zone = '" . G5_TIMEZONE . "'");
+        }
+    
+        // echo 'Connection successful!';
+    } catch (PDOException $e) {
+        die('MySQL Connect Error: ' . $e->getMessage());
+    }
 
-    // mysql connect resource $g5 배열에 저장 - 명랑폐인님 제안
-    $g5['connect_db'] = $connect_db;
-
-    sql_set_charset(G5_DB_CHARSET, $connect_db);
-    if(defined('G5_MYSQL_SET_MODE') && G5_MYSQL_SET_MODE) sql_query("SET SESSION sql_mode = ''");
-    if (defined('G5_TIMEZONE')) sql_query(" set time_zone = '".G5_TIMEZONE."'");
 } else {
 ?>
 
